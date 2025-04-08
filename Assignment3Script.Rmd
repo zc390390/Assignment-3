@@ -1,0 +1,110 @@
+#Load in the data and packages!
+```{R}
+library(haven)
+library(ggplot2)
+library(flexplot)
+library(tidyr)
+library(lme4)
+df <- read_sav('P6003.A4.sav')
+```
+
+#Data Exploration
+#day - Out of 20 possible days, which day was measured
+#swl - Satisfaction with life
+#tipm.E - Extraversion
+#tipm.N - Neuroticism
+
+#Exploring what our data looks like utilizing flexplot distributions. 
+#No outliers or anything extreme. Our two predictors are also not highly correlated!
+```{R}
+flexplot(swl ~ 1, data = df)
+flexplot(tipm.E ~ 1, data = df)
+flexplot(tipm.N ~ 1, data = df)
+
+correlation <- cor(df$tipm.E, df$tipm.N, use = "complete.obs", method = "spearman")
+print(correlation)
+```
+
+#Before moving to analysis, plotting residuals of our model to test for assumptions utilizing flexplot for each of our hypothesises
+
+```{R}
+hypoglm1 <- glm(swl ~ tipm.E, data = df)
+visualize(hypoglm1, plot="residuals")
+hypoglm2 <- glm(swl ~ tipm.N, data = df)
+visualize(hypoglm2, plot="residuals")
+hypoglm3.1 <- glm(swl ~ tipm.E*day, data = df)
+visualize(hypoglm3, plot="residuals")
+hypoglm3.2 <- glm(swl ~ tipm.N*day, data = df)
+visualize(hypoglm3, plot="residuals")
+```
+##We have a big issue! There is not consistency of variance for any residuals! Variance is also not extremely normal but it's okay. We believe that having multiple testing from ID is likely explaining the issue with the plots. 
+
+##Let's make a graph to visualize this.
+##Using head, we se tha tthe dataframe is oragnized by participant ID. This makes the next part easier
+##We use head to take the top 500 participants. 
+##We then graph id on the x axis and y axis for satisfiaction with life, to see if different ID's have different SWL's or if theya re similar.
+
+```{R}
+head(df, 10)
+dfexamine <- head(df, 500)
+
+ggplot(dfexamine, aes(x = factor(id), y = swl)) + 
+  geom_boxplot() + 
+  theme_classic()
+```
+
+#This visual exploration shows that satisfaciton with life is not independent from ID, meaning that ID is impacting SWL. This means we are going to need a random effect due to there being repeated observations for our model. 
+
+
+
+##Let's see how mcuh adding a random fixed intercept explains our outcome of satiance, using lmer and having 1+(1|id) we are purely looking at how much a specific person's multiple observation explains the variance. 
+```{R}
+baseline <- lmer(swl ~ 1+(1|id), data = df)
+summary(baseline)
+icc(baseline)   ##An ICC of 0.74 implies that ID explains about 74% of our variance, which means that we will need some                   random effects for id!
+```
+
+#Hypothesis 1 
+```{R}
+#First model for Hypothesis 1: Fixed effect tipm.E and a random intercept for ID. Outcome is SWL. 
+hypo1a <- lmer(swl ~ tipm.E + (1|id), data = df)
+visualize(hypo1a, plot = 'residuals')             #Visualization reveals that we do not have constant variance.                                                           In addition a random slope could be added to this model to                                                             increase fit
+```
+
+#Alternative Model for Hypothesis 1, model comparison, and visualization of new model. 
+```{R}
+#Alternative Model for Hypothesis 1: Fixed effect tipm.E. Random slope for tipm.E and random intercept for ID. Outcome is SWL. 
+hypo1b <- lmer(swl ~ tipm.E + (tipm.E|id), data = df)
+
+#Model Comparison
+model.comparison(hypo1a, hypo1b) #The model comparison we get is very significant! Adding a random slope for tipm.e                                      does appear to explain more variance based on the lower AIC, lower BIC, larger                                         bayes.factor, and significant P.
+
+#Visualization of Results
+visualize(hypo1b, plot = 'residuals')  #It looks like even though the new model has a better fit, it still is breaking                                         constantly variance. This means our model is breaking some assumptions but we                                          will simply state this and move onto to our new hypothesis. 
+```
+
+#Hypothesis 2
+```{R}
+#First Model for Hypothesis 2: Fixed effect tipm.N and a random intercept for ID. Outcome is SWL. 
+hypo2a <- lmer(swl ~ tipm.N + (1|id), data = df)
+visualize(hypo2a, plot = 'residuals')                   #Visualization reveals that we do not have constant variance.                                                           In addition a random slope could be added to this model to                                                             increase fit. 
+```
+
+#Alternative Model for Hypothesis 2, model comparison, and visualization of new model. 
+```{R}
+#Alternative Model for Hypo 2: Fixed effect tipm.N. Random slope for tipm.N and random intercept for ID. Outcome is SWL.
+hypo2b <- lmer(swl ~ tipm.N + (tipm.N|id), data = df)
+
+#Model Comparison
+model.comparison(hypo2a, hypo2b)       #Much like our last hypothesis, adding a random slope for tipm.N does appear to                                        explain more based on the lower AIC, lower BIC, larger bayes.factor, and                                               significant P. 
+
+#Visualization of Results
+visualize(hypo2b, plot = 'residuals')  #Our assumption of constant variance is still broken much like the last                                                hypothesis. However the variance is slightly more consistent than the first                                            model. Normality is not broken and independence is no longer an issue now that                                         we have a random effect for id.
+```
+
+
+#Hypothesis 3
+```{r}
+#First Model for Hypo 3: 
+
+```
