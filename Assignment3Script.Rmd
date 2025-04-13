@@ -11,6 +11,7 @@ library(flextable)
 library(officer)
 library(webshot2)
 library(apaTables)
+library(sjPlot)
 df <- read_sav('P6003.A4.sav')
 ```
 
@@ -28,39 +29,12 @@ print(correlation) #No outliers or anything extreme. Our two predictors are also
 
 #Descriptive Statistics Table Creation
 ```{r}
+df$day <- df$day-1 #This makes day start at 1, which makes more sense for interpretation
 
-df_summary <- df %>%                                              
-  summarise(across(c('swl', 'tipm.E', 'tipm.N'),         #Summarize lets us get the mean/sd of our three variables
-                   list(Mean = ~mean(.x, na.rm = TRUE), 
-                        SD = ~sd(.x, na.rm = TRUE)))) %>%
-  pivot_longer(cols = everything(),          #Using pivot longer and wider we can make a 3x6 dataframe of our summary
-               names_to = c("Variable", "Statistic"),
-               names_sep = "_") %>%
-  pivot_wider(names_from = Statistic, values_from = value) %>%  #Now pivot wider lets us make a 2x3 df of our summary                                                                  based on similar names in statistic and value columns. 
-  mutate(across(c(Mean, SD), ~round(.x, 2)))                    #Ensure rounding
-
-df_summary$Variable <- recode(df_summary$Variable,         #Rename our variable so its clear on the APA table. 
-                              "swl" = "SWL",
-                              "tipm.E" = "Extraversion",
-                              "tipm.N" = "Neuroticism")
-
-apa_table <- flextable(df_summary) %>%                #Use flextable to create apa style table. 
-  theme_booktabs() %>%
-  set_caption("Table 1: Descriptive Statistics") %>%
-  colformat_double(j = 2:3, digits = 2) %>%
-  align(j = 2:3, align = "center") %>%
-  width(j = 1, width = 2) %>%
-  autofit()
-
-print(apa_table)               
-save_as_image(apa_table, path = "apa_table_descriptions.png")     #Saving it as a PNG to put in our paper later!
-```
-
-#Correlation Table
-```{r}
 apa.cor.table(df %>% select(tipm.E, tipm.N, swl), 
               filename = "correlation_table.doc", 
-              show.sig.stars = TRUE)
+              show.sig.stars = TRUE, 
+              table.number = 1)
 ```
 
 #Before moving to analysis, plotting residuals of our model to test for assumptions utilizing flexplot for each of our hypothesises
@@ -88,10 +62,8 @@ dfexamine <- head(df, 500)
 ggplot(dfexamine, aes(x = factor(id), y = swl)) + 
   geom_boxplot() + 
   theme_classic()
-```
-
 #This visual exploration shows that satisfaciton with life is not independent from ID, meaning that ID is impacting SWL. This means we are going to need a random effect due to there being repeated observations for our model. 
-
+```
 
 
 ##Let's see how mcuh adding a random fixed intercept explains our outcome of satiance, using lmer and having 1+(1|id) we are purely looking at how much a specific person's multiple observation explains the variance. 
@@ -105,7 +77,8 @@ icc(baseline)   ##An ICC of 0.74 implies that ID explains about 74% of our varia
 ```{R}
 #First model for Hypothesis 1: Fixed effect tipm.E and a random intercept for ID. Outcome is SWL. 
 hypo1.2.a <- lmer(swl ~ tipm.E +  tipm.N + (1|id), data = df, REML = FALSE)
-visualize(hypo1.2.a, plot = 'residuals')             #Visualization reveals that we do not have constant variance.                                                           In addition a random slope could be added to this model to                                                             increase fit
+visualize(hypo1.2.a, plot = 'residuals')             
+#Visualization reveals that we do not have constant variance. In addition a random slope could be added to this model to increase fit
 ```
 
 #Alternative Model for Hypothesis 1, model comparison, and visualization of new model. 
@@ -135,11 +108,18 @@ hypo1.2.b <- lmer(swl ~ tipm.E + tipm.N + (1 + tipm.N + tipm.E|id), data = df, R
 hypo3ab <- lmer(swl ~ tipm.E + tipm.N + tipm.E*day + tipm.N*day + (1 + tipm.N + tipm.E|id), data = df, REML = FALSE)
 
 model.comparison (hypo1.2.b, hypo3ab)
-summary(hypo3ac)
 ```
 
 ```{r}
 summary(hypo3ab)
 visualize(hypo3ab, plot = 'residuals')
-visualize(hypo3ab)
+
+png("Table2_model_table.png", width = 1200, height = 800)
+
+tab_model(hypo3ab,
+          show.re.var = TRUE,   
+          show.icc = TRUE,      
+          show.r2 = TRUE,       
+          dv.labels = "Satisfaction with Life",
+          file = "tablemodel.html")
 ```
