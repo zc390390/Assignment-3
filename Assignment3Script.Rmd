@@ -44,9 +44,9 @@ visualize(hypoglm1, plot="residuals")
 hypoglm2 <- glm(swl ~ tipm.N, data = df)
 visualize(hypoglm2, plot="residuals")
 hypoglm3.1 <- glm(swl ~ tipm.E*day, data = df)
-visualize(hypoglm3, plot="residuals")
+visualize(hypoglm3.1, plot="residuals")
 hypoglm3.2 <- glm(swl ~ tipm.N*day, data = df)
-visualize(hypoglm3, plot="residuals")
+visualize(hypoglm3.2, plot="residuals")
 ```
 ##We have a big issue! There is not consistency of variance for any residuals! Variance is also not extremely normal but it's okay. We believe that having multiple testing from ID is likely explaining the issue with the plots. 
 
@@ -110,6 +110,7 @@ hypo3ab <- lmer(swl ~ tipm.E + tipm.N + tipm.E*day + tipm.N*day + (1 + tipm.N + 
 model.comparison (hypo1.2.b, hypo3ab)
 ```
 
+#With our final model, we can use tab_model to output the results from our summary in apa. And visualize the final models residuals. 
 ```{r}
 summary(hypo3ab)
 visualize(hypo3ab, plot = 'residuals')
